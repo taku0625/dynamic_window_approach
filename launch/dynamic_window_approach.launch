@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="tf2_ros" type="static_transform_publisher" name="static_transform_publisher" args="-2 -4 0 0 0 0 1 map goal">
+    </node>
+    <node pkg="dynamic_window_approach" type="dynamic_window_approach_node" name="dynamic_window_approach_node" output="screen">
+    </node>
+</launch>
