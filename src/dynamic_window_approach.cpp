@@ -90,6 +90,7 @@ geometry_msgs::Twist::Ptr DynamicWindowApproach::selectBestTwist(
     std::vector<std::vector<double>> th_values(linear_num, std::vector<double>(angular_num));
     std::vector<std::vector<double>> c_values(linear_num, std::vector<double>(angular_num));
     std::vector<std::vector<double>> v_values(linear_num, std::vector<double>(angular_num));
+    std::vector<std::vector<double>> w_values(linear_num, std::vector<double>(angular_num));
     for(size_t i = 0; i < static_cast<size_t>(linear_num); ++i)
     {
         next_twist->linear.x = window.min_linear + (double)i * LINEAR_DURATION_;
@@ -100,38 +101,26 @@ geometry_msgs::Twist::Ptr DynamicWindowApproach::selectBestTwist(
             th_values[i][j] = evaluateTargetHeading(path[path.size() - 1]);
             c_values[i][j] = evaluateClearance(pose, path);
             v_values[i][j] = evaluateVelocity(next_twist);
+            w_values[i][j] = evaluateAngularVelocity(next_twist);
         }
     }
 
-    th_values = minMaxNormalize(th_values);
-    c_values = minMaxNormalize(c_values);
-    v_values = minMaxNormalize(v_values);
-
     geometry_msgs::Twist::Ptr best_next_twist(new geometry_msgs::Twist());
-    double best_evaluation_value = 0.0;
+    double best_evaluation_value = 1000.0;
     for(size_t i = 0; i < static_cast<size_t>(linear_num); ++i)
     {
         next_twist->linear.x = window.min_linear + (double)i * LINEAR_DURATION_;
         for(size_t j = 0; j < static_cast<size_t>(angular_num); ++j)
         {
             next_twist->angular.z = window.min_angular + (double)j * ANGULAR_DURATION_;
-            double evaluation_value = TH_GAIN_ * th_values[i][j] + C_GAIN_ * c_values[i][j] + V_GAIN_ * v_values[i][j];
-            if(evaluation_value > best_evaluation_value)
+            double evaluation_value = TH_GAIN_ * th_values[i][j] + C_GAIN_ * c_values[i][j] + V_GAIN_ * v_values[i][j] + W_GAIN_ * w_values[i][j];
+            if(evaluation_value < best_evaluation_value)
             {
-                // ROS_INFO("%lf", th_values[i][j]);
-                // ROS_INFO("%lf", c_values[i][j]);
-                // ROS_INFO("%lf", v_values[i][j]);
-                // ROS_INFO("%lf", next_twist->linear.x);
-                // ROS_INFO("%lf", next_twist->angular.z);
                 best_evaluation_value = evaluation_value;
                 *best_next_twist = *next_twist;
             }
         }
     }
-
-    // ROS_INFO("%lf", best_next_twist->linear.x);
-    // ROS_INFO("%lf", best_next_twist->angular.z);
-    flag_ = false;
     return best_next_twist;
 }
 
@@ -157,7 +146,7 @@ double DynamicWindowApproach::evaluateTargetHeading(const geometry_msgs::Pose2D:
 {
     double angle_to_goal = std::atan2(goal_->transform.translation.y - next_pose->y, goal_->transform.translation.x - next_pose->x);
     double delta_theta = angle_to_goal - next_pose->theta;
-    double evaluation_value = 1.0 - std::fabs(normalizeAngle(delta_theta)) / M_PI;
+    double evaluation_value = std::fabs(normalizeAngle(delta_theta)) / M_PI;
     return evaluation_value;
 }
 
@@ -177,28 +166,32 @@ double DynamicWindowApproach::evaluateClearance(const geometry_msgs::Pose2D::Ptr
             double dx = path[i]->x - obstacle_points[j]->x;
             double dy = path[i]->y - obstacle_points[j]->y;
             double distance = std::sqrt(std::pow(dx, 2) + std::pow(dy, 2)) - OBSTACLE_POINT_RADIUS_;
-            if(distance <= 0.0)
+            if(- 0.05 <= distance && distance <= 0.05)
             {
-                // ROS_INFO("    x     : %lf", pose->x);
-                // ROS_INFO("    y     : %lf", pose->y);
-                // ROS_INFO("    px    : %lf", path[i]->x);
-                // ROS_INFO("    py    : %lf", path[i]->y);
-                // ROS_INFO("    obx   : %lf", obstacle_points[j]->x);
-                // ROS_INFO("    oby   : %lf", obstacle_points[j]->y);
-                // ROS_INFO("    dx    : %lf", dx);
-                // ROS_INFO("    dy    : %lf", dy);
-                // ROS_INFO(" distance : %lf", distance);
-                return 0.0;
+                return 100.0;
             }
             min_distance = std::min(min_distance, distance);
         }
     }
-    return min_distance;
+    return 1.0 / min_distance;
 }
 
 double DynamicWindowApproach::evaluateVelocity(const geometry_msgs::Twist::Ptr& next_twist)
 {
-    return std::fabs(next_twist->linear.x) / MAX_LINEAR_;
+    return 1.0 - std::fabs(next_twist->linear.x) / MAX_LINEAR_;
+}
+
+double DynamicWindowApproach::evaluateAngularVelocity(const geometry_msgs::Twist::Ptr& next_twist)
+{
+    if(next_twist->linear.x == 0.0)
+    {
+        return 1.0 - std::fabs(next_twist->angular.z) / MAX_ANGULAR_;
+    }
+    else
+    {
+        return 1.0;
+    }
+
 }
 
 void DynamicWindowApproach::goalJudgment(const geometry_msgs::Pose2D::Ptr& pose)

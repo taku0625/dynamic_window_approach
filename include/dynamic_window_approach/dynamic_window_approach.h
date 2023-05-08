@@ -29,6 +29,7 @@ protected:
     double evaluateTargetHeading(const geometry_msgs::Pose2D::Ptr& next_pose);
     double evaluateClearance(const geometry_msgs::Pose2D::Ptr& pose, const std::vector<geometry_msgs::Pose2D::Ptr>& path);
     double evaluateVelocity(const geometry_msgs::Twist::Ptr& next_twist);
+    double evaluateAngularVelocity(const geometry_msgs::Twist::Ptr& next_twist);
 
     void goalJudgment(const geometry_msgs::Pose2D::Ptr& pose);
 
@@ -65,17 +66,17 @@ private:
     const double MAX_DELTA_ANGULAR_ = 0.2;
     const double LINEAR_DURATION_ = 0.05;
     const double ANGULAR_DURATION_ = 0.05;
-    const double TH_GAIN_ = 1.0;
-    const double C_GAIN_ = 1.0;
+    const double TH_GAIN_ = 0.5;
+    const double C_GAIN_ = 5.0;
     const double V_GAIN_ = 1.0;
-    const double OBSTACLE_POINT_RADIUS_ = 0.2;
+    const double W_GAIN_ = 0.1;
+    const double OBSTACLE_POINT_RADIUS_ = 0.1;
     const double GOAL_THRESHOLD_ = 0.1;
     const double X_LIDER_ = 0.5;
 
     bool scan_flag_ = false;
     bool goal_flag_ = false;
     bool reach_goal_ = false;
-    bool flag_ = true;
 };
 
 #endif
