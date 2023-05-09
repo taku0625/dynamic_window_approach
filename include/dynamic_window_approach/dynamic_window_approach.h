@@ -32,6 +32,7 @@ protected:
     double evaluateAngularVelocity(const geometry_msgs::Twist::Ptr& next_twist);
 
     void goalJudgment(const geometry_msgs::Pose2D::Ptr& pose);
+    void visualizePath(const std::vector<geometry_msgs::Pose2D::Ptr>& path);
 
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
     void timerPlannerCallback(const ros::TimerEvent& e);
@@ -41,6 +42,7 @@ private:
     ros::NodeHandle& nh_;
 
     ros::Publisher pub_twist_;
+    ros::Publisher pub_path_points_;
 
     ros::Subscriber sub_scan_;
 

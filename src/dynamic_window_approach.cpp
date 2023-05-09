@@ -1,6 +1,7 @@
 #include "dynamic_window_approach/dynamic_window_approach.h"
 #include "dynamic_window_approach/utils.h"
 #include <geometry_msgs/TwistStamped.h>
+#include <geometry_msgs/PoseArray.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 
 
@@ -14,6 +15,7 @@ DynamicWindowApproach::DynamicWindowApproach(ros::NodeHandle& nh)
     goal_.reset(new geometry_msgs::TransformStamped());
 
     pub_twist_ = nh_.advertise<geometry_msgs::TwistStamped>("/twist_cmd", 1);
+    pub_path_points_ = nh_.advertise<geometry_msgs::PoseArray>("/path_points", 1);
 
     sub_scan_ = nh_.subscribe("/scan", 1, &DynamicWindowApproach::scanCallback, this);
 
@@ -98,6 +100,7 @@ geometry_msgs::Twist::Ptr DynamicWindowApproach::selectBestTwist(
         {
             next_twist->angular.z = window.min_angular + (double)j * ANGULAR_DURATION_;
             std::vector<geometry_msgs::Pose2D::Ptr> path = predictPath(pose, next_twist);
+            visualizePath(path);
             th_values[i][j] = evaluateTargetHeading(path[path.size() - 1]);
             c_values[i][j] = evaluateClearance(pose, path);
             v_values[i][j] = evaluateVelocity(next_twist);
@@ -205,6 +208,22 @@ void DynamicWindowApproach::goalJudgment(const geometry_msgs::Pose2D::Ptr& pose)
     {
         reach_goal_ = true;
     }
+}
+
+void DynamicWindowApproach::visualizePath(const std::vector<geometry_msgs::Pose2D::Ptr>& path)
+{
+    geometry_msgs::PoseArray::Ptr pa(new geometry_msgs::PoseArray());
+    pa->poses.resize(path.size());
+    pa->header.stamp = ros::Time::now();
+    pa->header.frame_id = "map";
+    for(size_t i = 0; i < static_cast<size_t>(path.size()); ++i)
+    {
+        pa->poses[i].position.x = path[i]->x;
+        pa->poses[i].position.y = path[i]->y;
+        pa->poses[i].orientation.z = std::sin(path[i]->theta / 2);
+        pa->poses[i].orientation.w = std::cos(path[i]->theta / 2);
+    }
+    pub_path_points_.publish(pa);
 }
 
 void DynamicWindowApproach::timerListenGoalCallback(const ros::TimerEvent& e)
