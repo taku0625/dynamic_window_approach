@@ -60,10 +60,10 @@ geometry_msgs::Pose2D::Ptr DynamicWindowApproach::createPose()
 Window DynamicWindowApproach::createWindow(const geometry_msgs::Twist::Ptr& twist)
 {
     Window window;
-    window.max_linear = std::min((twist->linear.x + MAX_DELTA_LINEAR_), MAX_LINEAR_);
-    window.min_linear = std::max((twist->linear.x - MAX_DELTA_LINEAR_), MIN_LINEAR_);
-    window.max_angular = std::min((twist->angular.z + MAX_DELTA_ANGULAR_), MAX_ANGULAR_);
-    window.min_angular = std::max((twist->angular.z - MAX_DELTA_ANGULAR_), MIN_ANGULAR_);
+    window.max_linear = std::min((twist->linear.x + MAX_LINEAR_ACCELERATION_ * DT_), MAX_LINEAR_);
+    window.min_linear = std::max((twist->linear.x - MAX_LINEAR_ACCELERATION_ * DT_), MIN_LINEAR_);
+    window.max_angular = std::min((twist->angular.z + MAX_ANGULAR_ACCELERATION_ * DT_), MAX_ANGULAR_);
+    window.min_angular = std::max((twist->angular.z - MAX_ANGULAR_ACCELERATION_ * DT_), MIN_ANGULAR_);
     return window;
 }
 
@@ -87,20 +87,37 @@ geometry_msgs::Twist::Ptr DynamicWindowApproach::selectBestTwist(
 )
 {
     geometry_msgs::Twist::Ptr next_twist(new geometry_msgs::Twist());
-    int linear_num = (window.max_linear - window.min_linear) / LINEAR_DURATION_ + 1;
-    int angular_num = (window.max_angular - window.min_angular) / ANGULAR_DURATION_ + 1;
+    
+    int linear_num = (window.max_linear - window.min_linear) / (WINDOW_LINEAR_DURATION_ * DT_) + 1;
+    int angular_num = (window.max_angular - window.min_angular) / (WINDOW_ANGULAR_DURATION_ * DT_) + 1;
+    
     std::vector<std::vector<double>> th_values(linear_num, std::vector<double>(angular_num));
     std::vector<std::vector<double>> c_values(linear_num, std::vector<double>(angular_num));
     std::vector<std::vector<double>> v_values(linear_num, std::vector<double>(angular_num));
     std::vector<std::vector<double>> w_values(linear_num, std::vector<double>(angular_num));
+
+    geometry_msgs::PoseArray::Ptr pa(new geometry_msgs::PoseArray());
+    pa->poses.resize(linear_num * angular_num * PUBLISH_HZ_ * PREDICT_TIME_);
+    pa->header.stamp = ros::Time::now();
+    pa->header.frame_id = "map";
+    int idx = 0;
     for(size_t i = 0; i < static_cast<size_t>(linear_num); ++i)
     {
-        next_twist->linear.x = window.min_linear + (double)i * LINEAR_DURATION_;
+        next_twist->linear.x = window.min_linear + (double)i * WINDOW_LINEAR_DURATION_ * DT_;
         for(size_t j = 0; j < static_cast<size_t>(angular_num); ++j)
         {
-            next_twist->angular.z = window.min_angular + (double)j * ANGULAR_DURATION_;
+            next_twist->angular.z = window.min_angular + (double)j * WINDOW_ANGULAR_DURATION_ * DT_;
             std::vector<geometry_msgs::Pose2D::Ptr> path = predictPath(pose, next_twist);
-            visualizePath(path);
+
+            for(size_t k = 0; k < static_cast<size_t>(path.size()); k+=10)
+            {
+                pa->poses[idx].position.x = path[k]->x;
+                pa->poses[idx].position.y = path[k]->y;
+                pa->poses[idx].orientation.z = std::sin(path[k]->theta / 2);
+                pa->poses[idx].orientation.w = std::cos(path[k]->theta / 2);
+                ++idx;
+            }
+            
             th_values[i][j] = evaluateTargetHeading(path[path.size() - 1]);
             c_values[i][j] = evaluateClearance(pose, path);
             v_values[i][j] = evaluateVelocity(next_twist);
@@ -108,14 +125,16 @@ geometry_msgs::Twist::Ptr DynamicWindowApproach::selectBestTwist(
         }
     }
 
+    pub_path_points_.publish(pa);
+
     geometry_msgs::Twist::Ptr best_next_twist(new geometry_msgs::Twist());
     double best_evaluation_value = 1000.0;
     for(size_t i = 0; i < static_cast<size_t>(linear_num); ++i)
     {
-        next_twist->linear.x = window.min_linear + (double)i * LINEAR_DURATION_;
+        next_twist->linear.x = window.min_linear + (double)i * WINDOW_LINEAR_DURATION_ * DT_;
         for(size_t j = 0; j < static_cast<size_t>(angular_num); ++j)
         {
-            next_twist->angular.z = window.min_angular + (double)j * ANGULAR_DURATION_;
+            next_twist->angular.z = window.min_angular + (double)j * WINDOW_ANGULAR_DURATION_ * DT_;
             double evaluation_value = TH_GAIN_ * th_values[i][j] + C_GAIN_ * c_values[i][j] + V_GAIN_ * v_values[i][j] + W_GAIN_ * w_values[i][j];
             if(evaluation_value < best_evaluation_value)
             {
@@ -131,16 +150,19 @@ std::vector<geometry_msgs::Pose2D::Ptr> DynamicWindowApproach::predictPath(
     const geometry_msgs::Pose2D::Ptr& pose, const geometry_msgs::Twist::Ptr& next_twist
 )
 {
-    std::vector<geometry_msgs::Pose2D::Ptr> path(PATH_POINT_NUM_ * PREDICT_TIME_);
-    double path_point_duration_x = next_twist->linear.x * std::cos(pose->theta) / PUBLISH_HZ_ / PATH_POINT_NUM_;
-    double path_point_duration_y = next_twist->linear.y * std::cos(pose->theta) / PUBLISH_HZ_ / PATH_POINT_NUM_;
-    double path_point_duration_theta = next_twist->angular.z / PUBLISH_HZ_ / PATH_POINT_NUM_;
-    for(size_t i = 0; i < static_cast<size_t>(PATH_POINT_NUM_ * PREDICT_TIME_); ++i)
+    std::vector<geometry_msgs::Pose2D::Ptr> path(PUBLISH_HZ_ * PREDICT_TIME_);
+
+    path[0].reset(new geometry_msgs::Pose2D());
+    path[0]->x = pose->x + next_twist->linear.x * std::cos(pose->theta) * DT_;
+    path[0]->y = pose->y + next_twist->linear.x * std::sin(pose->theta) * DT_;
+    path[0]->theta = pose->theta + next_twist->angular.z * DT_;
+
+    for(size_t i = 1; i < static_cast<size_t>(PUBLISH_HZ_ * PREDICT_TIME_); ++i)
     {
         path[i].reset(new geometry_msgs::Pose2D());
-        path[i]->x = pose->x + path_point_duration_x * (double)(i + 1);
-        path[i]->y = pose->y + path_point_duration_y * (double)(i + 1);
-        path[i]->theta = pose->theta + path_point_duration_theta * (double)(i + 1);
+        path[i]->x = path[i-1]->x + next_twist->linear.x * std::cos(path[i-1]->theta) * DT_;
+        path[i]->y = path[i-1]->y + next_twist->linear.x * std::sin(path[i-1]->theta) * DT_;
+        path[i]->theta = path[i-1]->theta + next_twist->angular.z * DT_;
     }
     return path;
 }
@@ -169,7 +191,7 @@ double DynamicWindowApproach::evaluateClearance(const geometry_msgs::Pose2D::Ptr
             double dx = path[i]->x - obstacle_points[j]->x;
             double dy = path[i]->y - obstacle_points[j]->y;
             double distance = std::sqrt(std::pow(dx, 2) + std::pow(dy, 2)) - OBSTACLE_POINT_RADIUS_;
-            if(- 0.05 <= distance && distance <= 0.05)
+            if(distance <= 0.0)
             {
                 return 100.0;
             }

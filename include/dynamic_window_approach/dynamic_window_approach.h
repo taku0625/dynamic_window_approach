@@ -58,23 +58,24 @@ private:
     geometry_msgs::TransformStamped::Ptr goal_;
 
     const int PUBLISH_HZ_ = 20;
-    const int PATH_POINT_NUM_ = 10;
-    const double PREDICT_TIME_ = 3.0;
-    const double MAX_LINEAR_ = 0.5;
+    const int PREDICT_TIME_ = 3;
+    const double MAX_LINEAR_ = 1.0;
     const double MIN_LINEAR_ = 0.0;
-    const double MAX_ANGULAR_ = 0.3;
-    const double MIN_ANGULAR_ = -0.3;
-    const double MAX_DELTA_LINEAR_ = 0.2;
-    const double MAX_DELTA_ANGULAR_ = 0.2;
-    const double LINEAR_DURATION_ = 0.05;
-    const double ANGULAR_DURATION_ = 0.05;
-    const double TH_GAIN_ = 0.5;
-    const double C_GAIN_ = 5.0;
+    const double MAX_ANGULAR_ = 0.8;
+    const double MIN_ANGULAR_ = - 0.8;
+    const double MAX_LINEAR_ACCELERATION_ = 1.0;
+    const double MAX_ANGULAR_ACCELERATION_ = 2.0;
+    const double WINDOW_LINEAR_DURATION_ = MAX_LINEAR_ACCELERATION_ / 5.0;
+    const double WINDOW_ANGULAR_DURATION_ = MAX_ANGULAR_ACCELERATION_ / 5.0;
+    const double TH_GAIN_ = 1.0;
+    const double C_GAIN_ = 0.5;
     const double V_GAIN_ = 1.0;
-    const double W_GAIN_ = 0.1;
+    const double W_GAIN_ = 0.0;
     const double OBSTACLE_POINT_RADIUS_ = 0.1;
     const double GOAL_THRESHOLD_ = 0.1;
     const double X_LIDER_ = 0.5;
+
+    const double DT_ = 1.0 / PUBLISH_HZ_;
 
     bool scan_flag_ = false;
     bool goal_flag_ = false;
