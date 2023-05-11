@@ -135,7 +135,7 @@ geometry_msgs::Twist::Ptr DynamicWindowApproach::selectBestTwist(
         for(size_t j = 0; j < static_cast<size_t>(angular_num); ++j)
         {
             next_twist->angular.z = window.min_angular + (double)j * WINDOW_ANGULAR_DURATION_ * DT_;
-            double evaluation_value = TH_GAIN_ * th_values[i][j] + C_GAIN_ * c_values[i][j] + V_GAIN_ * v_values[i][j] + W_GAIN_ * w_values[i][j];
+            double evaluation_value = TH_GAIN_ * th_values[i][j] + C_GAIN_ * c_values[i][j] + V_GAIN_ * v_values[i][j];
             if(evaluation_value < best_evaluation_value)
             {
                 best_evaluation_value = evaluation_value;
@@ -204,19 +204,6 @@ double DynamicWindowApproach::evaluateClearance(const geometry_msgs::Pose2D::Ptr
 double DynamicWindowApproach::evaluateVelocity(const geometry_msgs::Twist::Ptr& next_twist)
 {
     return 1.0 - std::fabs(next_twist->linear.x) / MAX_LINEAR_;
-}
-
-double DynamicWindowApproach::evaluateAngularVelocity(const geometry_msgs::Twist::Ptr& next_twist)
-{
-    if(next_twist->linear.x == 0.0)
-    {
-        return 1.0 - std::fabs(next_twist->angular.z) / MAX_ANGULAR_;
-    }
-    else
-    {
-        return 1.0;
-    }
-
 }
 
 void DynamicWindowApproach::goalJudgment(const geometry_msgs::Pose2D::Ptr& pose)
