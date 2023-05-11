@@ -68,9 +68,8 @@ private:
     const double WINDOW_LINEAR_DURATION_ = MAX_LINEAR_ACCELERATION_ / 5.0;
     const double WINDOW_ANGULAR_DURATION_ = MAX_ANGULAR_ACCELERATION_ / 5.0;
     const double TH_GAIN_ = 1.0;
-    const double C_GAIN_ = 0.5;
-    const double V_GAIN_ = 1.0;
-    const double W_GAIN_ = 0.0;
+    const double C_GAIN_ = 0.3;
+    const double V_GAIN_ = 2.0;
     const double OBSTACLE_POINT_RADIUS_ = 0.1;
     const double GOAL_THRESHOLD_ = 0.1;
     const double X_LIDER_ = 0.5;
