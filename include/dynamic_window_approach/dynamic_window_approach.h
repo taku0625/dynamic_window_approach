@@ -29,7 +29,6 @@ protected:
     double evaluateTargetHeading(const geometry_msgs::Pose2D::Ptr& next_pose);
     double evaluateClearance(const geometry_msgs::Pose2D::Ptr& pose, const std::vector<geometry_msgs::Pose2D::Ptr>& path);
     double evaluateVelocity(const geometry_msgs::Twist::Ptr& next_twist);
-    double evaluateAngularVelocity(const geometry_msgs::Twist::Ptr& next_twist);
 
     void goalJudgment(const geometry_msgs::Pose2D::Ptr& pose);
     void visualizePath(const std::vector<geometry_msgs::Pose2D::Ptr>& path);

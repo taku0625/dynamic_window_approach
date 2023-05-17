@@ -121,7 +121,6 @@ geometry_msgs::Twist::Ptr DynamicWindowApproach::selectBestTwist(
             th_values[i][j] = evaluateTargetHeading(path[path.size() - 1]);
             c_values[i][j] = evaluateClearance(pose, path);
             v_values[i][j] = evaluateVelocity(next_twist);
-            w_values[i][j] = evaluateAngularVelocity(next_twist);
         }
     }
 
