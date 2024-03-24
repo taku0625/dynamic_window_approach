@@ -9,12 +9,14 @@ using namespace std;
 
 double normalizeAngle(double angle)
 {
-    angle = std::fmod(angle, 2 * M_PI);
-    if (angle > M_PI) {
-        angle -= 2 * M_PI;
-    }
-    else if (angle < -M_PI) {
-        angle += 2 * M_PI;
-    }
-    return angle;
+  angle = std::fmod(angle, 2 * M_PI);
+  if (angle > M_PI)
+  {
+    angle -= 2 * M_PI;
+  }
+  else if (angle < -M_PI)
+  {
+    angle += 2 * M_PI;
+  }
+  return angle;
 }
